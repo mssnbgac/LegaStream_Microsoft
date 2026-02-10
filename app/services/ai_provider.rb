@@ -1,0 +1,338 @@
+# Multi-Provider AI Service
+# Supports: OpenAI, Google Gemini, Anthropic Claude, Ollama
+
+require 'net/http'
+require 'json'
+require 'uri'
+
+class AIProvider
+  def initialize
+    @provider = ENV['AI_PROVIDER']&.downcase || 'openai'
+    @api_key = get_api_key
+    @enabled = @api_key && !@api_key.empty? && @api_key != 'your_api_key_here'
+  end
+
+  def enabled?
+    @enabled
+  end
+
+  def provider_name
+    @provider
+  end
+
+  def extract_entities(text)
+    return nil unless @enabled
+    
+    case @provider
+    when 'gemini'
+      extract_with_gemini(text)
+    when 'claude', 'anthropic'
+      extract_with_claude(text)
+    when 'openai'
+      extract_with_openai(text)
+    when 'ollama'
+      extract_with_ollama(text)
+    else
+      nil
+    end
+  rescue => e
+    puts "[AIProvider] Error with #{@provider}: #{e.message}"
+    nil
+  end
+
+  def analyze_compliance(text, entities)
+    return nil unless @enabled
+    
+    case @provider
+    when 'gemini'
+      compliance_with_gemini(text)
+    when 'claude', 'anthropic'
+      compliance_with_claude(text)
+    when 'openai'
+      compliance_with_openai(text)
+    when 'ollama'
+      compliance_with_ollama(text)
+    else
+      nil
+    end
+  rescue => e
+    puts "[AIProvider] Compliance error with #{@provider}: #{e.message}"
+    nil
+  end
+
+  def generate_summary(text, entities, compliance, risks)
+    return nil unless @enabled
+    
+    case @provider
+    when 'gemini'
+      summary_with_gemini(text, entities, compliance, risks)
+    when 'claude', 'anthropic'
+      summary_with_claude(text, entities, compliance, risks)
+    when 'openai'
+      summary_with_openai(text, entities, compliance, risks)
+    when 'ollama'
+      summary_with_ollama(text, entities, compliance, risks)
+    else
+      nil
+    end
+  rescue => e
+    puts "[AIProvider] Summary error with #{@provider}: #{e.message}"
+    nil
+  end
+
+  private
+
+  def get_api_key
+    case @provider
+    when 'gemini'
+      ENV['GEMINI_API_KEY']
+    when 'claude', 'anthropic'
+      ENV['ANTHROPIC_API_KEY'] || ENV['CLAUDE_API_KEY']
+    when 'openai'
+      ENV['OPENAI_API_KEY']
+    when 'ollama'
+      'local' # Ollama doesn't need an API key
+    else
+      ENV['OPENAI_API_KEY'] # Default fallback
+    end
+  end
+
+  # Google Gemini Implementation
+  def extract_with_gemini(text)
+    # Limit text to avoid token issues
+    text_sample = text[0..3000]
+    
+    prompt = <<~PROMPT
+      Extract entities from this legal document. Return ONLY a JSON array with this exact format:
+      [{"type": "person", "value": "John Doe", "context": "Party to agreement"}, ...]
+      
+      Entity types: person, organization, date, monetary, location, clause, obligation
+      
+      Document text:
+      #{text_sample}
+    PROMPT
+
+    response = call_gemini_api(prompt)
+    parse_json_response(response)
+  end
+
+  def compliance_with_gemini(text)
+    prompt = <<~PROMPT
+      Analyze this legal document for compliance. Return ONLY JSON:
+      {"score": 85, "issues": ["issue1"], "recommendations": ["rec1"]}
+      
+      Document:
+      #{text[0..3000]}
+    PROMPT
+
+    response = call_gemini_api(prompt)
+    JSON.parse(response.match(/\{.*\}/m)[0]) rescue { score: 85, issues: [], recommendations: [] }
+  end
+
+  def summary_with_gemini(text, entities, compliance, risks)
+    prompt = <<~PROMPT
+      Summarize this legal document in 2-3 sentences. Focus on key points, parties, and obligations.
+      
+      Document:
+      #{text[0..2000]}
+    PROMPT
+
+    call_gemini_api(prompt)
+  end
+
+  def call_gemini_api(prompt)
+    uri = URI("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=#{@api_key}")
+    
+    request = Net::HTTP::Post.new(uri)
+    request['Content-Type'] = 'application/json'
+    request.body = {
+      contents: [{
+        parts: [{ text: prompt }]
+      }],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 2000  # Increased to account for thinking tokens
+      }
+    }.to_json
+
+    response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true, read_timeout: 30) do |http|
+      http.request(request)
+    end
+
+    data = JSON.parse(response.body)
+    
+    # Check for API errors
+    if data['error']
+      puts "[ERROR] Gemini API error: #{data['error']['message']}"
+      return ''
+    end
+    
+    # Check for empty candidates
+    unless data['candidates'] && data['candidates'][0]
+      puts "[WARN] No candidates in Gemini response"
+      return ''
+    end
+    
+    candidate = data['candidates'][0]
+    finish_reason = candidate['finishReason']
+    
+    # Check finish reason
+    if finish_reason != 'STOP'
+      puts "[WARN] Gemini finished with reason: #{finish_reason}"
+      if finish_reason == 'SAFETY'
+        puts "[WARN] Content was blocked by safety filters"
+      end
+    end
+    
+    # Extract text
+    text = data.dig('candidates', 0, 'content', 'parts', 0, 'text')
+    
+    if text.nil? || text.empty?
+      puts "[WARN] Gemini returned empty text"
+      return ''
+    end
+    
+    text
+  end
+
+  # Anthropic Claude Implementation
+  def extract_with_claude(text)
+    prompt = "Extract entities from this legal document as JSON array: #{text[0..4000]}"
+    response = call_claude_api(prompt)
+    parse_json_response(response)
+  end
+
+  def compliance_with_claude(text)
+    prompt = "Analyze compliance as JSON: #{text[0..3000]}"
+    response = call_claude_api(prompt)
+    JSON.parse(response.match(/\{.*\}/m)[0]) rescue { score: 85, issues: [], recommendations: [] }
+  end
+
+  def summary_with_claude(text, entities, compliance, risks)
+    call_claude_api("Summarize this legal document: #{text[0..2000]}")
+  end
+
+  def call_claude_api(prompt)
+    uri = URI('https://api.anthropic.com/v1/messages')
+    
+    request = Net::HTTP::Post.new(uri)
+    request['Content-Type'] = 'application/json'
+    request['x-api-key'] = @api_key
+    request['anthropic-version'] = '2023-06-01'
+    request.body = {
+      model: 'claude-3-haiku-20240307',
+      max_tokens: 1000,
+      messages: [{ role: 'user', content: prompt }]
+    }.to_json
+
+    response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
+      http.request(request)
+    end
+
+    data = JSON.parse(response.body)
+    data.dig('content', 0, 'text') || ''
+  end
+
+  # OpenAI Implementation (existing)
+  def extract_with_openai(text)
+    require 'openai'
+    client = OpenAI::Client.new(access_token: @api_key)
+    
+    prompt = "Extract entities as JSON array: #{text[0..4000]}"
+    
+    response = client.chat(parameters: {
+      model: 'gpt-3.5-turbo',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.3,
+      max_tokens: 1000
+    })
+    
+    content = response.dig('choices', 0, 'message', 'content')
+    parse_json_response(content)
+  end
+
+  def compliance_with_openai(text)
+    require 'openai'
+    client = OpenAI::Client.new(access_token: @api_key)
+    
+    response = client.chat(parameters: {
+      model: 'gpt-3.5-turbo',
+      messages: [{ role: 'user', content: "Analyze compliance as JSON: #{text[0..3000]}" }],
+      temperature: 0.3,
+      max_tokens: 500
+    })
+    
+    content = response.dig('choices', 0, 'message', 'content')
+    JSON.parse(content.match(/\{.*\}/m)[0]) rescue { score: 85, issues: [], recommendations: [] }
+  end
+
+  def summary_with_openai(text, entities, compliance, risks)
+    require 'openai'
+    client = OpenAI::Client.new(access_token: @api_key)
+    
+    response = client.chat(parameters: {
+      model: 'gpt-3.5-turbo',
+      messages: [{ role: 'user', content: "Summarize: #{text[0..2000]}" }],
+      temperature: 0.5,
+      max_tokens: 200
+    })
+    
+    response.dig('choices', 0, 'message', 'content') || ''
+  end
+
+  # Ollama Implementation (Local LLM)
+  def extract_with_ollama(text)
+    prompt = "Extract entities as JSON: #{text[0..4000]}"
+    response = call_ollama_api(prompt)
+    parse_json_response(response)
+  end
+
+  def compliance_with_ollama(text)
+    response = call_ollama_api("Analyze compliance as JSON: #{text[0..3000]}")
+    JSON.parse(response.match(/\{.*\}/m)[0]) rescue { score: 85, issues: [], recommendations: [] }
+  end
+
+  def summary_with_ollama(text, entities, compliance, risks)
+    call_ollama_api("Summarize: #{text[0..2000]}")
+  end
+
+  def call_ollama_api(prompt)
+    host = ENV['OLLAMA_HOST'] || 'http://localhost:11434'
+    model = ENV['OLLAMA_MODEL'] || 'llama2'
+    
+    uri = URI("#{host}/api/generate")
+    
+    request = Net::HTTP::Post.new(uri)
+    request['Content-Type'] = 'application/json'
+    request.body = {
+      model: model,
+      prompt: prompt,
+      stream: false
+    }.to_json
+
+    response = Net::HTTP.start(uri.hostname, uri.port) do |http|
+      http.request(request)
+    end
+
+    data = JSON.parse(response.body)
+    data['response'] || ''
+  end
+
+  # Helper method to parse JSON from AI responses
+  def parse_json_response(text)
+    return [] if text.nil? || text.empty?
+    
+    # Remove markdown code blocks if present
+    cleaned = text.strip
+    cleaned = cleaned.sub(/^```json\s*/, '').sub(/```\s*$/, '')
+    
+    # Try to extract JSON array from response
+    json_match = cleaned.match(/\[.*\]/m)
+    return [] unless json_match
+    
+    JSON.parse(json_match[0])
+  rescue => e
+    puts "[AIProvider] JSON parse error: #{e.message}"
+    []
+  end
+end

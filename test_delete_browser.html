@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test DELETE Request</title>
+</head>
+<body>
+    <h1>Test DELETE Request</h1>
+    <button onclick="testDelete()">Test Delete Document 15</button>
+    <pre id="result"></pre>
+
+    <script>
+        async function testDelete() {
+            const resultEl = document.getElementById('result');
+            resultEl.textContent = 'Sending DELETE request...';
+            
+            try {
+                // Get token first
+                const loginRes = await fetch('http://localhost:3001/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@legastream.com',
+                        password: 'password'
+                    })
+                });
+                
+                const loginData = await loginRes.json();
+                const token = loginData.token;
+                
+                resultEl.textContent += '\n✅ Logged in, token: ' + token.substring(0, 30) + '...';
+                
+                // Try DELETE
+                const deleteRes = await fetch('http://localhost:3001/api/v1/documents/15', {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                resultEl.textContent += '\n\nDELETE Response:';
+                resultEl.textContent += '\nStatus: ' + deleteRes.status + ' ' + deleteRes.statusText;
+                
+                const data = await deleteRes.json();
+                resultEl.textContent += '\nBody: ' + JSON.stringify(data, null, 2);
+                
+                if (deleteRes.ok) {
+                    resultEl.textContent += '\n\n✅ DELETE SUCCESSFUL!';
+                } else {
+                    resultEl.textContent += '\n\n❌ DELETE FAILED!';
+                }
+            } catch (error) {
+                resultEl.textContent += '\n\n❌ Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

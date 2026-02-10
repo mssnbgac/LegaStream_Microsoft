@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LegaStream - Test Document Status</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover { background: #45a049; }
+        .document {
+            background: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #4CAF50;
+            border-radius: 4px;
+        }
+        .processing { border-left-color: #ff9800; }
+        .completed { border-left-color: #4CAF50; }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status.processing {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status.completed {
+            background: #d4edda;
+            color: #155724;
+        }
+        #result { margin-top: 20px; }
+        .info { color: #666; font-size: 14px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 LegaStream Document Status Test</h1>
+        <p class="info">This page fetches data directly from the API with cache disabled.</p>
+        
+        <button onclick="login()">1. Login</button>
+        <button onclick="fetchDocuments()" id="fetchBtn" disabled>2. Fetch Documents</button>
+        <button onclick="location.reload(true)">🔄 Hard Refresh Page</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        let token = null;
+
+        async function login() {
+            const result = document.getElementById('result');
+            result.innerHTML = '<p>Logging in...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:3001/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache'
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@legastream.com',
+                        password: 'password'
+                    })
+                });
+                
+                const data = await response.json();
+                token = data.token;
+                
+                result.innerHTML = `<p style="color: green;">✓ Login successful! Token: ${token.substring(0, 30)}...</p>`;
+                document.getElementById('fetchBtn').disabled = false;
+            } catch (error) {
+                result.innerHTML = `<p style="color: red;">✗ Login failed: ${error.message}</p>`;
+            }
+        }
+
+        async function fetchDocuments() {
+            const result = document.getElementById('result');
+            result.innerHTML = '<p>Fetching documents...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:3001/api/v1/documents', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                let html = `
+                    <h2>Documents (${data.total})</h2>
+                    <p class="info">
+                        Processing: ${data.processing} | 
+                        Completed: ${data.completed} | 
+                        Fetched at: ${new Date().toLocaleTimeString()}
+                    </p>
+                `;
+                
+                data.documents.forEach(doc => {
+                    html += `
+                        <div class="document ${doc.status}">
+                            <strong>${doc.original_filename || doc.filename}</strong>
+                            <span class="status ${doc.status}">${doc.status}</span>
+                            <div class="info">
+                                ID: ${doc.id} | 
+                                Size: ${(doc.file_size / 1024).toFixed(2)} KB | 
+                                Created: ${new Date(doc.created_at).toLocaleString()}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                result.innerHTML = html;
+            } catch (error) {
+                result.innerHTML = `<p style="color: red;">✗ Fetch failed: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

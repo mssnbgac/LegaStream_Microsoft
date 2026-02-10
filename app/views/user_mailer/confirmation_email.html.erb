@@ -1,0 +1,30 @@
+<div class="content">
+  <h2>Welcome to LegaStream, <%= @user.first_name %>!</h2>
+  
+  <p>Thank you for signing up for LegaStream, the AI-powered legal discovery platform. We're excited to have you on board!</p>
+  
+  <p>To get started, please confirm your email address by clicking the button below:</p>
+  
+  <div style="text-align: center; margin: 30px 0;">
+    <a href="<%= @confirmation_url %>" class="button">Confirm Email Address</a>
+  </div>
+  
+  <p>Once your email is confirmed, you'll be able to:</p>
+  <ul>
+    <li>Upload and analyze legal documents with AI</li>
+    <li>Access the Live Logic Terminal for real-time insights</li>
+    <li>Manage your document library and analysis results</li>
+    <li>Configure your workspace settings</li>
+  </ul>
+  
+  <div class="security-note">
+    <strong>Security Note:</strong> This confirmation link will expire in 24 hours for your security. 
+    If you didn't create an account with LegaStream, please ignore this email.
+  </div>
+  
+  <p>If the button above doesn't work, you can copy and paste this link into your browser:</p>
+  <p style="word-break: break-all; color: #3b82f6;"><%= @confirmation_url %></p>
+  
+  <p>Welcome aboard!<br>
+  The LegaStream Team</p>
+</div>
