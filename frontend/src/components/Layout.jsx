@@ -401,7 +401,7 @@ export function Layout() {
                       {user ? user.full_name || `${user.first_name} ${user.last_name}` : 'Admin User'}
                     </p>
                     <p className="text-xs text-gray-600 dark:text-gray-400">
-                      {user ? user.email : 'admin@legastream.com'}
+                      {user ? user.email : 'admin@legalauditor.com'}
                     </p>
                   </div>
                   <ChevronDown className="ml-2 h-4 w-4 text-gray-600 dark:text-gray-400" />

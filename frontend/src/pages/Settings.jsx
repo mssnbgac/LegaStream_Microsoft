@@ -719,7 +719,7 @@ export function Settings() {
       <div className="text-center lg:text-left">
         <h1 className="text-4xl font-bold text-white mb-3">Settings</h1>
         <p className="text-xl text-gray-400">
-          Configure your LegaStream workspace and preferences
+          Configure your Legal Auditor Agent workspace and preferences
         </p>
       </div>
 

@@ -1,23 +1,22 @@
-# LegaStream AI Agentic OS
+# Legal Auditor Agent - AI Document Analysis
 
-A Vertical AI Agentic Operating System for Legal Discovery targeting mid-sized law firms and independent legal researchers.
+An AI-powered legal document analysis platform for law firms and legal professionals.
 
 ## Features
 
-- **Autonomous Agent Engine**: Powered by Langchain.rb for intelligent document analysis
-- **Live Logic Terminal**: Real-time WebSocket streaming of agent reasoning processes
-- **Secure Tool Sandbox**: Isolated execution environment preventing sensitive data exposure
-- **Multi-Tenant Architecture**: Complete data isolation between law firms
-- **Usage-Based Billing**: Accurate token consumption tracking and billing
+- **AI Document Analysis**: Powered by Google Gemini for intelligent document analysis
+- **Entity Extraction**: Automatic extraction of parties, dates, amounts, and legal terms
+- **Multi-User Support**: Complete data isolation between users
+- **Real-Time Processing**: Live updates on document analysis progress
+- **Secure Platform**: Production-ready with comprehensive security measures
 
 ## Tech Stack
 
-- **Backend**: Rails 8 (API-only)
+- **Backend**: Ruby with WEBrick
 - **Frontend**: React 19 with Vite
-- **Database**: PostgreSQL with JSONB
-- **Cache/Queue**: Redis
-- **WebSockets**: ActionCable
-- **AI Framework**: Langchain.rb
+- **Database**: SQLite
+- **AI**: Google Gemini API
+- **Email**: SMTP (Gmail/SendGrid)
 
 ## Development Setup
 

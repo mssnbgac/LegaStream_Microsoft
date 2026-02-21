@@ -38,7 +38,7 @@ export function LiveTerminal() {
 
     // Enhanced mock messages for demonstration
     const mockMessages = [
-      { id: 1, type: 'system', content: '🚀 LegaStream AI Agent v2.1.0 initialized', timestamp: new Date(), category: 'startup' },
+      { id: 1, type: 'system', content: '🚀 Legal Auditor Agent v2.1.0 initialized', timestamp: new Date(), category: 'startup' },
       { id: 2, type: 'system', content: '🔐 Secure sandbox environment activated', timestamp: new Date(), category: 'security' },
       { id: 3, type: 'system', content: '🧠 Neural language model loaded (GPT-4 Turbo)', timestamp: new Date(), category: 'ai' },
       { id: 4, type: 'info', content: '💡 This is a demo terminal showing simulated AI reasoning', timestamp: new Date(), category: 'info' },
@@ -130,7 +130,7 @@ export function LiveTerminal() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `legastream-logs-${new Date().toISOString().split('T')[0]}.txt`
+    a.download = `legal-auditor-logs-${new Date().toISOString().split('T')[0]}.txt`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -274,7 +274,7 @@ export function LiveTerminal() {
             <div className="flex-1 flex items-center justify-center">
               <span className="text-gray-400 text-sm font-mono flex items-center space-x-2">
                 <Terminal className="h-4 w-4" />
-                <span>LegaStream AI Agent Terminal</span>
+                <span>Legal Auditor Agent Terminal</span>
                 {isConnected && (
                   <div className="flex items-center space-x-1 ml-4">
                     <div className="w-1 h-1 bg-green-400 rounded-full animate-pulse"></div>
