@@ -121,14 +121,14 @@ class ProductionServer
     SQL
     
     # Create default admin user if not exists
-    admin = @db.execute("SELECT * FROM users WHERE email = ?", ['admin@legastream.com']).first
+    admin = @db.execute("SELECT * FROM users WHERE email = ?", ['admin@legalauditor.com']).first
     unless admin
       password_hash = hash_password('password')
       @db.execute(
         "INSERT INTO users (email, password_hash, first_name, last_name, role, email_confirmed) VALUES (?, ?, ?, ?, ?, ?)",
-        ['admin@legastream.com', password_hash, 'Admin', 'User', 'admin', 1]
+        ['admin@legalauditor.com', password_hash, 'Admin', 'User', 'admin', 1]
       )
-      puts "Created default admin user: admin@legastream.com / password"
+      puts "Created default admin user: admin@legalauditor.com / password"
     end
   end
 
