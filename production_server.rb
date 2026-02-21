@@ -1200,8 +1200,8 @@ class ProductionServer
       # Use Render URL in production, localhost in development
       base_url = ENV['RENDER_EXTERNAL_URL'] || 'http://localhost:5173'
       
-      from_email = ENV['SMTP_FROM_EMAIL'] || ENV['SMTP_USERNAME'] || 'noreply@legastream.com'
-      from_name = ENV['SMTP_FROM_NAME'] || 'LegaStream'
+      from_email = ENV['SMTP_FROM_EMAIL'] || ENV['SMTP_USERNAME'] || 'noreply@legalauditor.com'
+      from_name = ENV['SMTP_FROM_NAME'] || 'Legal Auditor Agent'
       
       puts "From: #{from_name} <#{from_email}>"
       puts "To: #{email}"
@@ -1210,8 +1210,8 @@ class ProductionServer
       mail = Mail.new do
         from     "#{from_name} <#{from_email}>"
         to       email
-        subject  'Confirm your LegaStream account'
-        body     "Hi #{name},\n\nPlease confirm your account by clicking this link:\n#{base_url}/confirm-email?token=#{token}\n\nThanks,\nLegaStream Team"
+        subject  'Confirm your Legal Auditor Agent account'
+        body     "Hi #{name},\n\nPlease confirm your account by clicking this link:\n#{base_url}/confirm-email?token=#{token}\n\nThanks,\nLegal Auditor Agent Team"
       end
       
       mail.deliver!
@@ -1242,14 +1242,14 @@ class ProductionServer
       # Use Render URL in production, localhost in development
       base_url = ENV['RENDER_EXTERNAL_URL'] || 'http://localhost:5173'
       
-      from_email = ENV['SMTP_FROM_EMAIL'] || ENV['SMTP_USERNAME'] || 'noreply@legastream.com'
-      from_name = ENV['SMTP_FROM_NAME'] || 'LegaStream'
+      from_email = ENV['SMTP_FROM_EMAIL'] || ENV['SMTP_USERNAME'] || 'noreply@legalauditor.com'
+      from_name = ENV['SMTP_FROM_NAME'] || 'Legal Auditor Agent'
       
       mail = Mail.new do
         from     "#{from_name} <#{from_email}>"
         to       email
-        subject  'Reset your LegaStream password'
-        body     "Hi #{name},\n\nReset your password by clicking this link:\n#{base_url}/reset-password?token=#{token}\n\nThis link expires in 2 hours.\n\nThanks,\nLegaStream Team"
+        subject  'Reset your Legal Auditor Agent password'
+        body     "Hi #{name},\n\nReset your password by clicking this link:\n#{base_url}/reset-password?token=#{token}\n\nThis link expires in 2 hours.\n\nThanks,\nLegal Auditor Agent Team"
       end
       
       mail.deliver!
@@ -1265,7 +1265,7 @@ class ProductionServer
   end
 
   def start
-    puts "🚀 LegaStream Production Server starting on port #{@port}"
+    puts "🚀 Legal Auditor Agent Production Server starting on port #{@port}"
     puts "🔧 Mode: #{@development_mode ? 'Development (email confirmation bypassed)' : 'Production'}"
     puts "📊 Health check: http://localhost:#{@port}/up"
     puts "🔧 API endpoints: http://localhost:#{@port}/api/v1/*"

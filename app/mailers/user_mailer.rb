@@ -1,5 +1,5 @@
 class UserMailer < ApplicationMailer
-  default from: ENV.fetch('FROM_EMAIL', 'noreply@legastream.com')
+  default from: ENV.fetch('FROM_EMAIL', 'noreply@legalauditor.com')
 
   def confirmation_email(user)
     @user = user
@@ -7,7 +7,7 @@ class UserMailer < ApplicationMailer
     
     mail(
       to: @user.email,
-      subject: 'Welcome to LegaStream - Please confirm your email'
+      subject: 'Welcome to Legal Auditor Agent - Please confirm your email'
     )
   end
 
@@ -17,7 +17,7 @@ class UserMailer < ApplicationMailer
     
     mail(
       to: @user.email,
-      subject: 'LegaStream - Reset your password'
+      subject: 'Legal Auditor Agent - Reset your password'
     )
   end
 
@@ -27,7 +27,7 @@ class UserMailer < ApplicationMailer
     
     mail(
       to: @user.email,
-      subject: 'Welcome to LegaStream - Your account is ready!'
+      subject: 'Welcome to Legal Auditor Agent - Your account is ready!'
     )
   end
 end

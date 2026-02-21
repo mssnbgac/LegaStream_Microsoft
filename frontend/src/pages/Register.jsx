@@ -133,7 +133,7 @@ export function Register() {
             <Scale className="h-10 w-10 text-white" />
           </div>
           <h2 className="text-4xl font-extrabold text-white mb-3">
-            Join LegaStream
+            Join Legal Auditor Agent
           </h2>
           <p className="text-lg text-gray-400">
             Create your account and start analyzing legal documents with AI

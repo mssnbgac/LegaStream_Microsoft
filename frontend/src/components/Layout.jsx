@@ -200,9 +200,9 @@ export function Layout() {
               </div>
               <div className="ml-3">
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                  LegaStream
+                  Legal Auditor Agent
                 </h1>
-                <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">AI Legal Discovery</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">AI Document Analysis</p>
               </div>
             </div>
 
@@ -473,8 +473,8 @@ export function Layout() {
                   <Scale className="h-6 w-6 text-white" />
                 </div>
                 <div className="ml-3">
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">LegaStream</h1>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">AI Legal Discovery</p>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">Legal Auditor Agent</h1>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">AI Document Analysis</p>
                 </div>
               </div>
               

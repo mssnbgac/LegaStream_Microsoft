@@ -121,10 +121,10 @@ export function Login() {
             <Scale className="h-10 w-10 text-white" />
           </div>
           <h2 className="text-4xl font-extrabold text-white mb-3">
-            Sign in to LegaStream
+            Sign in to Legal Auditor Agent
           </h2>
           <p className="text-lg text-gray-400">
-            AI-Powered Legal Discovery Platform
+            AI-Powered Legal Document Analysis
           </p>
         </div>
 
