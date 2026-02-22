@@ -121,39 +121,38 @@ class AIProvider
   # Google Gemini Implementation
   def extract_with_gemini(text)
     # Limit text to avoid token issues
-    text_sample = text[0..5000]
+    text_sample = text[0..4000]
     
     prompt = <<~PROMPT
-      You are a legal document analyzer. Extract entities from this document and return ONLY a JSON array.
-      
-      IMPORTANT: Your response must be ONLY the JSON array, nothing else. No explanations, no markdown, just the array.
-      
-      Extract these 10 entity types:
-      1. PARTY - People or organizations (e.g., "Acme Corporation", "John Smith")
-      2. ADDRESS - Physical addresses (e.g., "123 Main Street, New York, NY 10001")
-      3. DATE - Dates (e.g., "March 1, 2026", "Start date: March 1, 2026")
-      4. AMOUNT - Money (e.g., "$75,000", "$75,000 annual salary")
-      5. OBLIGATION - Legal duties (e.g., "Employee shall perform duties diligently")
-      6. CLAUSE - Contract terms (e.g., "Termination with 30 days notice")
-      7. JURISDICTION - Governing law (e.g., "Governed by New York law", "State of New York")
-      8. TERM - Duration (e.g., "24-month contract duration", "Period of 24 months")
-      9. CONDITION - Requirements (e.g., "Subject to background check", "Unless terminated earlier")
-      10. PENALTY - Damages (e.g., "$5,000 liquidated damages", "Penalty of $10,000")
-      
-      Document text:
+      Extract legal entities from this document. Return ONLY a valid JSON array with no additional text, explanations, or markdown formatting.
+
+      Entity types to extract:
+      - PARTY: People or organizations (companies, individuals)
+      - ADDRESS: Physical addresses
+      - DATE: Dates in any format
+      - AMOUNT: Money amounts with context
+      - OBLIGATION: Legal duties (phrases with "shall", "must", "will")
+      - CLAUSE: Contract terms (termination, confidentiality, notice periods)
+      - JURISDICTION: Governing law references
+      - TERM: Duration or time periods
+      - CONDITION: Conditional requirements (subject to, unless, provided that)
+      - PENALTY: Damages, penalties, fines
+
+      Document:
       #{text_sample}
-      
-      Return format (ONLY this, nothing else):
-      [
-        {"type":"PARTY","value":"Acme Corporation","context":"employer party to agreement","confidence":0.95},
-        {"type":"PARTY","value":"John Smith","context":"employee party to agreement","confidence":0.95},
-        {"type":"ADDRESS","value":"123 Main Street, New York","context":"employer address","confidence":0.88},
-        {"type":"DATE","value":"March 1, 2026","context":"agreement start date","confidence":0.92},
-        {"type":"AMOUNT","value":"$75,000 annual salary","context":"employee compensation","confidence":0.95}
-      ]
+
+      Response format - return ONLY this JSON array structure:
+      [{"type":"PARTY","value":"Acme Corporation","context":"employer","confidence":0.95},{"type":"DATE","value":"March 1, 2026","context":"start date","confidence":0.92}]
     PROMPT
 
     response = call_gemini_api(prompt)
+    
+    # If response is empty or nil, return empty array immediately
+    if response.nil? || response.empty?
+      puts "[AIProvider] Gemini returned empty response"
+      return []
+    end
+    
     parse_json_response(response)
   end
 
@@ -192,12 +191,15 @@ class AIProvider
         parts: [{ text: prompt }]
       }],
       generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 2000  # Increased to account for thinking tokens
+        temperature: 0.1,  # Lower temperature for more consistent JSON
+        maxOutputTokens: 2048,
+        topP: 0.8,
+        topK: 10
       }
     }.to_json
 
     puts "[Gemini] Sending request to API..."
+    puts "[Gemini] Prompt length: #{prompt.length} chars"
     
     response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true, read_timeout: 60) do |http|
       http.request(request)
@@ -224,7 +226,7 @@ class AIProvider
     # Check for empty candidates
     unless data['candidates'] && data['candidates'][0]
       puts "[Gemini] No candidates in response"
-      puts "[Gemini] Response: #{data.inspect}"
+      puts "[Gemini] Response: #{data.inspect[0..500]}"
       return ''
     end
     
@@ -232,12 +234,15 @@ class AIProvider
     finish_reason = candidate['finishReason']
     
     # Check finish reason
-    if finish_reason != 'STOP'
+    if finish_reason && finish_reason != 'STOP'
       puts "[Gemini] Finished with reason: #{finish_reason}"
       if finish_reason == 'SAFETY'
         puts "[Gemini] Content was blocked by safety filters"
+        puts "[Gemini] Safety ratings: #{candidate['safetyRatings'].inspect}" if candidate['safetyRatings']
       elsif finish_reason == 'MAX_TOKENS'
         puts "[Gemini] Response truncated due to max tokens"
+      elsif finish_reason == 'RECITATION'
+        puts "[Gemini] Content blocked due to recitation"
       end
     end
     
@@ -246,17 +251,19 @@ class AIProvider
     
     if text.nil? || text.empty?
       puts "[Gemini] Empty text in response"
+      puts "[Gemini] Candidate structure: #{candidate.inspect[0..500]}"
       return ''
     end
     
     puts "[Gemini] Success! Received #{text.length} chars"
+    puts "[Gemini] Response preview: #{text[0..200]}"
     text
   rescue Net::ReadTimeout => e
     puts "[Gemini] TIMEOUT: #{e.message}"
     ''
   rescue JSON::ParserError => e
     puts "[Gemini] JSON parse error: #{e.message}"
-    puts "[Gemini] Response body: #{response.body[0..500]}"
+    puts "[Gemini] Response body: #{response.body[0..500]}" if response
     ''
   rescue => e
     puts "[Gemini] Unexpected error: #{e.class} - #{e.message}"
@@ -409,29 +416,70 @@ class AIProvider
     end
     
     puts "[AIProvider] Parsing response (#{text.length} chars)"
-    puts "[AIProvider] First 200 chars: #{text[0..200]}"
+    puts "[AIProvider] First 300 chars: #{text[0..300]}"
     
     # Remove markdown code blocks if present
     cleaned = text.strip
-    cleaned = cleaned.sub(/^```json\s*/, '').sub(/```\s*$/, '')
-    cleaned = cleaned.sub(/^```\s*/, '').sub(/```\s*$/, '')  # Also handle plain ```
+    cleaned = cleaned.gsub(/```json\s*/i, '').gsub(/```\s*$/, '')
+    cleaned = cleaned.gsub(/```\s*/i, '').gsub(/```\s*$/, '')
+    
+    # Remove any leading text before the JSON array
+    if cleaned =~ /\[/
+      start_pos = cleaned.index('[')
+      cleaned = cleaned[start_pos..-1]
+    end
+    
+    # Remove any trailing text after the JSON array
+    if cleaned =~ /\]/
+      end_pos = cleaned.rindex(']')
+      cleaned = cleaned[0..end_pos]
+    end
     
     # Try to extract JSON array from response
     json_match = cleaned.match(/\[.*\]/m)
     
     unless json_match
       puts "[AIProvider] No JSON array found in response"
-      puts "[AIProvider] Cleaned text: #{cleaned[0..300]}"
-      return []
+      puts "[AIProvider] Cleaned text: #{cleaned[0..500]}"
+      
+      # Try to find if there's any JSON-like structure
+      if cleaned.include?('{') && cleaned.include?('}')
+        puts "[AIProvider] Found JSON objects but not in array format"
+        # Try to wrap in array
+        cleaned = "[#{cleaned}]" if !cleaned.start_with?('[')
+        json_match = cleaned.match(/\[.*\]/m)
+      end
+      
+      return [] unless json_match
     end
     
     puts "[AIProvider] Found JSON array, attempting to parse..."
-    entities = JSON.parse(json_match[0])
+    json_str = json_match[0]
+    
+    # Clean up common JSON issues
+    json_str = json_str.gsub(/,\s*\]/, ']')  # Remove trailing commas
+    json_str = json_str.gsub(/,\s*\}/, '}')  # Remove trailing commas in objects
+    
+    entities = JSON.parse(json_str)
     puts "[AIProvider] Successfully parsed #{entities.length} entities"
-    entities
-  rescue => e
+    
+    # Validate entity structure
+    valid_entities = entities.select do |e|
+      e.is_a?(Hash) && e['type'] && e['value']
+    end
+    
+    if valid_entities.length < entities.length
+      puts "[AIProvider] Filtered out #{entities.length - valid_entities.length} invalid entities"
+    end
+    
+    valid_entities
+  rescue JSON::ParserError => e
     puts "[AIProvider] JSON parse error: #{e.message}"
     puts "[AIProvider] Error class: #{e.class}"
+    puts "[AIProvider] JSON string that failed: #{json_str[0..500]}" if json_str
+    []
+  rescue => e
+    puts "[AIProvider] Unexpected error: #{e.class} - #{e.message}"
     puts "[AIProvider] Text that failed: #{text[0..500]}"
     []
   end
