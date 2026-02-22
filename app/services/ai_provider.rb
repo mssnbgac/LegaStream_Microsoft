@@ -162,8 +162,8 @@ class AIProvider
   end
 
   def call_gemini_api(prompt)
-    # Use gemini-pro (stable, available model)
-    uri = URI("https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=#{@api_key}")
+    # Use v1 API with gemini-1.5-flash (correct API version)
+    uri = URI("https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=#{@api_key}")
     
     request = Net::HTTP::Post.new(uri)
     request['Content-Type'] = 'application/json'
