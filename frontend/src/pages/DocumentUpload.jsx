@@ -435,7 +435,7 @@ export function DocumentUpload() {
                             <>
                               <span>•</span>
                               <span className="text-green-600 dark:text-green-400">
-                                {doc.analysis_results.entities_extracted} entities found
+                                {doc.analysis_results?.entities_extracted || 0} entities found
                               </span>
                             </>
                           )}
@@ -507,25 +507,25 @@ export function DocumentUpload() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/50 dark:to-blue-800/50 rounded-xl p-5 border border-blue-200 dark:border-blue-700">
                   <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                    {selectedDocument.analysis_results.entities_extracted}
+                    {selectedDocument.analysis_results?.entities_extracted || 0}
                   </div>
                   <div className="text-sm text-blue-700 dark:text-blue-300 mt-1">Entities Extracted</div>
                 </div>
                 <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/50 dark:to-green-800/50 rounded-xl p-5 border border-green-200 dark:border-green-700">
                   <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-                    {selectedDocument.analysis_results.compliance_score.toFixed(0)}%
+                    {selectedDocument.analysis_results?.compliance_score?.toFixed?.(0) || 'N/A'}%
                   </div>
                   <div className="text-sm text-green-700 dark:text-green-300 mt-1">Compliance Score</div>
                 </div>
                 <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/50 dark:to-purple-800/50 rounded-xl p-5 border border-purple-200 dark:border-purple-700">
                   <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
-                    {selectedDocument.analysis_results.confidence_score.toFixed(0)}%
+                    {selectedDocument.analysis_results?.confidence_score?.toFixed?.(0) || selectedDocument.analysis_results?.completeness?.score || 'N/A'}%
                   </div>
                   <div className="text-sm text-purple-700 dark:text-purple-300 mt-1">AI Confidence</div>
                 </div>
                 <div className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/50 dark:to-amber-800/50 rounded-xl p-5 border border-amber-200 dark:border-amber-700">
                   <div className="text-3xl font-bold text-amber-600 dark:text-amber-400 capitalize">
-                    {selectedDocument.analysis_results.risk_level}
+                    {selectedDocument.analysis_results?.risk_level?.level || selectedDocument.analysis_results?.risk_level || 'N/A'}
                   </div>
                   <div className="text-sm text-amber-700 dark:text-amber-300 mt-1">Risk Level</div>
                 </div>
@@ -627,7 +627,7 @@ export function DocumentUpload() {
                   <div>
                     <span className="text-gray-600 dark:text-gray-400">Issues Flagged:</span>
                     <span className="ml-2 font-semibold text-gray-900 dark:text-white">
-                      {selectedDocument.analysis_results.issues_flagged || 0}
+                      {selectedDocument.analysis_results?.issues_flagged || selectedDocument.analysis_results?.risk_level?.count || 0}
                     </span>
                   </div>
                   <div>
