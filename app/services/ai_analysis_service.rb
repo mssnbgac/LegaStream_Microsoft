@@ -168,51 +168,123 @@ class AIAnalysisService
   end
 
   def extract_entities_fallback(text)
-    log_step("Using fallback entity extraction (regex-based)")
+    log_step("Using fallback entity extraction with legal-specific types")
     
     entities = []
     
-    # Extract dates
-    text.scan(/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b|\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b/i) do |match|
-      entities << { type: 'date', value: match, context: 'Date found in document' }
-      save_entity('date', match, 'Date found in document', 0.90)
-    end
-    
-    # Extract monetary amounts
-    text.scan(/\$[\d,]+(?:\.\d{2})?|\b\d+(?:,\d{3})*(?:\.\d{2})?\s*(?:USD|dollars?)\b/i) do |match|
-      entities << { type: 'monetary', value: match, context: 'Monetary amount' }
-      save_entity('monetary', match, 'Monetary amount', 0.95)
-    end
-    
-    # Extract email addresses (high confidence)
-    text.scan(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/) do |match|
-      entities << { type: 'email', value: match, context: 'Email address' }
-      save_entity('email', match, 'Email address', 0.98)
-    end
-    
-    # Extract phone numbers
-    text.scan(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b|\(\d{3}\)\s*\d{3}[-.]?\d{4}\b/) do |match|
-      entities << { type: 'phone', value: match, context: 'Phone number' }
-      save_entity('phone', match, 'Phone number', 0.92)
-    end
-    
-    # Extract proper names (more selective - only 2-3 word capitalized sequences)
-    # Skip common words and only match likely person names
-    common_words = %w[The This That These Those Report Summary Document Analysis Section Chapter Page Table Figure Appendix]
-    text.scan(/\b[A-Z][a-z]+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b/) do |match|
+    # 1. PARTY - People or organizations (proper names, companies)
+    common_words = %w[The This That These Those Report Summary Document Analysis Section Chapter Page Table Figure Appendix Agreement Contract Whereas]
+    text.scan(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}\b/) do |match|
       words = match.split
       next if words.any? { |w| common_words.include?(w) }
-      next if words.length > 3 # Skip very long matches
-      next if match.length < 5 # Skip very short matches
+      next if match.length < 5
       
-      entities << { type: 'person', value: match, context: 'Person or organization name' }
-      save_entity('person', match, 'Person or organization name', 0.75)
+      # Determine context
+      context = if match.match?(/\b(?:Corporation|Corp|Inc|LLC|Ltd|Limited|Company|Co)\b/i)
+        'company party to agreement'
+      elsif match.match?(/\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/)
+        'individual party to agreement'
+      else
+        'party to agreement'
+      end
+      
+      entities << { type: 'PARTY', value: match, context: context }
+      save_entity('PARTY', match, context, 0.95)
     end
     
-    # Extract addresses (simple pattern)
-    text.scan(/\b\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln)\b/i) do |match|
-      entities << { type: 'address', value: match, context: 'Address' }
-      save_entity('address', match, 'Address', 0.88)
+    # 2. ADDRESS - Physical addresses
+    text.scan(/\b\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Crescent|Circle|Court|Ct)(?:,?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)?/i) do |match|
+      entities << { type: 'ADDRESS', value: match, context: 'physical address' }
+      save_entity('ADDRESS', match, 'physical address', 0.88)
+    end
+    
+    # 3. DATE - Dates in various formats
+    text.scan(/\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b/i) do |match|
+      entities << { type: 'DATE', value: match, context: 'date in document' }
+      save_entity('DATE', match, 'date in document', 0.92)
+    end
+    
+    text.scan(/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/) do |match|
+      entities << { type: 'DATE', value: match, context: 'date in document' }
+      save_entity('DATE', match, 'date in document', 0.90)
+    end
+    
+    # Extract date phrases
+    text.scan(/(?:Start date|Effective date|Commencement date|Termination date|Expiration date):\s*[^.]+/i) do |match|
+      entities << { type: 'DATE', value: match, context: 'contract date' }
+      save_entity('DATE', match, 'contract date', 0.90)
+    end
+    
+    # 4. AMOUNT - Money and compensation
+    text.scan(/\$[\d,]+(?:\.\d{2})?(?:\s+(?:annual|monthly|weekly|per\s+\w+))?\s*(?:salary|compensation|payment|fee|amount)?/i) do |match|
+      context = if match.match?(/salary|compensation/i)
+        'compensation amount'
+      elsif match.match?(/fee/i)
+        'fee amount'
+      else
+        'monetary amount'
+      end
+      
+      entities << { type: 'AMOUNT', value: match, context: context }
+      save_entity('AMOUNT', match, context, 0.95)
+    end
+    
+    # 5. OBLIGATION - Legal duties (shall, must, will)
+    text.scan(/(?:Employee|Employer|Party|Contractor|Company|Individual)\s+(?:shall|must|will|agrees to)\s+[^.]{10,100}\./i) do |match|
+      entities << { type: 'OBLIGATION', value: match.strip, context: 'legal obligation' }
+      save_entity('OBLIGATION', match.strip, 'legal obligation', 0.85)
+    end
+    
+    # 6. CLAUSE - Contract terms
+    text.scan(/(?:Termination|Confidentiality|Non-disclosure|Non-compete|Severance|Notice)\s+(?:with|of|clause|provision)[^.]{10,80}\./i) do |match|
+      entities << { type: 'CLAUSE', value: match.strip, context: 'contract clause' }
+      save_entity('CLAUSE', match.strip, 'contract clause', 0.88)
+    end
+    
+    # Extract notice periods
+    text.scan(/\b\d+\s*days?\s+(?:notice|written notice)/i) do |match|
+      entities << { type: 'CLAUSE', value: match, context: 'notice requirement' }
+      save_entity('CLAUSE', match, 'notice requirement', 0.90)
+    end
+    
+    # 7. JURISDICTION - Governing law
+    text.scan(/(?:Governed by|Subject to|Under)\s+(?:the\s+)?(?:laws?\s+of\s+)?(?:the\s+)?(?:State\s+of\s+)?[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?/i) do |match|
+      entities << { type: 'JURISDICTION', value: match, context: 'governing law' }
+      save_entity('JURISDICTION', match, 'governing law', 0.90)
+    end
+    
+    # Extract state/country references in legal context
+    text.scan(/\b(?:State|Commonwealth|Republic)\s+of\s+[A-Z][a-z]+/i) do |match|
+      entities << { type: 'JURISDICTION', value: match, context: 'jurisdiction' }
+      save_entity('JURISDICTION', match, 'jurisdiction', 0.88)
+    end
+    
+    # 8. TERM - Duration
+    text.scan(/\b\d+[-\s](?:month|year|day|week)s?\s+(?:contract|term|period|duration)/i) do |match|
+      entities << { type: 'TERM', value: match, context: 'contract duration' }
+      save_entity('TERM', match, 'contract duration', 0.90)
+    end
+    
+    text.scan(/(?:Period|Term|Duration)\s+of\s+\d+\s+(?:months?|years?|days?)/i) do |match|
+      entities << { type: 'TERM', value: match, context: 'time period' }
+      save_entity('TERM', match, 'time period', 0.88)
+    end
+    
+    # 9. CONDITION - Requirements
+    text.scan(/(?:Subject to|Conditional upon|Provided that|Unless)[^.]{10,80}\./i) do |match|
+      entities << { type: 'CONDITION', value: match.strip, context: 'conditional requirement' }
+      save_entity('CONDITION', match.strip, 'conditional requirement', 0.80)
+    end
+    
+    # 10. PENALTY - Damages and penalties
+    text.scan(/(?:Liquidated damages|Penalty|Fine)\s+of\s+\$[\d,]+/i) do |match|
+      entities << { type: 'PENALTY', value: match, context: 'penalty amount' }
+      save_entity('PENALTY', match, 'penalty amount', 0.95)
+    end
+    
+    text.scan(/\$[\d,]+\s+(?:liquidated damages|penalty|fine)/i) do |match|
+      entities << { type: 'PENALTY', value: match, context: 'penalty for breach' }
+      save_entity('PENALTY', match, 'penalty for breach', 0.95)
     end
     
     entities.uniq { |e| [e[:type], e[:value]] }
