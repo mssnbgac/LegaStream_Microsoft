@@ -173,23 +173,52 @@ class AIAnalysisService
     entities = []
     
     # 1. PARTY - People or organizations (proper names, companies)
-    common_words = %w[The This That These Those Report Summary Document Analysis Section Chapter Page Table Figure Appendix Agreement Contract Whereas]
-    text.scan(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}\b/) do |match|
-      words = match.split
-      next if words.any? { |w| common_words.include?(w) }
+    # First, extract addresses to exclude them from party detection
+    address_parts = []
+    text.scan(/\b\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Crescent|Circle|Court|Ct)\b/i) do |match|
+      address_parts << match
+    end
+    
+    # Common words to exclude from party detection
+    common_words = %w[The This That These Those Report Summary Document Analysis Section Chapter Page Table Figure Appendix Agreement Contract Whereas Herein Hereby Therefore Witnesseth Recitals Article Clause Paragraph Schedule Exhibit Annex Attachment Addendum Amendment Modification Extension Renewal Termination Expiration Effective Date Start End Beginning Conclusion]
+    
+    # Extract company names (high confidence)
+    text.scan(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:Corporation|Corp|Inc|LLC|Ltd|Limited|Company|Co|Partnership|LLP|PC|PA|PLC|GmbH|AG|SA|SPA|BV|NV)\b/i) do |match|
+      # Skip if it's part of an address
+      next if address_parts.any? { |addr| addr.include?(match) }
       next if match.length < 5
       
-      # Determine context
-      context = if match.match?(/\b(?:Corporation|Corp|Inc|LLC|Ltd|Limited|Company|Co)\b/i)
-        'company party to agreement'
-      elsif match.match?(/\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/)
-        'individual party to agreement'
-      else
-        'party to agreement'
-      end
+      entities << { type: 'PARTY', value: match, context: 'company party to agreement' }
+      save_entity('PARTY', match, 'company party to agreement', 0.95)
+    end
+    
+    # Extract person names (2-3 words, capitalized, not in common words)
+    text.scan(/\b[A-Z][a-z]+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b/) do |match|
+      words = match.split
       
-      entities << { type: 'PARTY', value: match, context: context }
-      save_entity('PARTY', match, context, 0.95)
+      # Skip if any word is in common words list
+      next if words.any? { |w| common_words.include?(w) }
+      
+      # Skip if it's part of an address
+      next if address_parts.any? { |addr| addr.include?(match) }
+      
+      # Skip if it contains street indicators
+      next if match.match?(/\b(?:Street|Avenue|Road|Boulevard|Drive|Lane|Crescent|Circle|Court)\b/i)
+      
+      # Skip very short matches
+      next if match.length < 5
+      
+      # Skip if it's all caps (likely acronym or title)
+      next if match == match.upcase
+      
+      # Skip if it's a single word repeated
+      next if words.length == 2 && words[0] == words[1]
+      
+      # Only include if it looks like a person name (First Last or First Middle Last)
+      if words.length >= 2 && words.length <= 3
+        entities << { type: 'PARTY', value: match, context: 'individual party to agreement' }
+        save_entity('PARTY', match, 'individual party to agreement', 0.90)
+      end
     end
     
     # 2. ADDRESS - Physical addresses

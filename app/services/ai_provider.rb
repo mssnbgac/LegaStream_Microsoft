@@ -127,8 +127,8 @@ class AIProvider
       Extract legal entities from this document. Return ONLY a valid JSON array with no additional text, explanations, or markdown formatting.
 
       Entity types to extract:
-      - PARTY: People or organizations (companies, individuals)
-      - ADDRESS: Physical addresses
+      - PARTY: ONLY people or organizations that are parties to the agreement (signatories, contracting parties). DO NOT include addresses, street names, or locations as parties.
+      - ADDRESS: Physical addresses (street addresses, office locations)
       - DATE: Dates in any format
       - AMOUNT: Money amounts with context
       - OBLIGATION: Legal duties (phrases with "shall", "must", "will")
@@ -137,6 +137,13 @@ class AIProvider
       - TERM: Duration or time periods
       - CONDITION: Conditional requirements (subject to, unless, provided that)
       - PENALTY: Damages, penalties, fines
+
+      IMPORTANT for PARTY extraction:
+      - ONLY extract actual parties to the agreement (companies, individuals who are signing)
+      - DO NOT extract street names like "Main Street" or "Oak Avenue" as parties
+      - DO NOT extract city names or locations as parties
+      - Look for company indicators: Corporation, Corp, Inc, LLC, Ltd, Limited, Company
+      - Look for person names in context of "between X and Y" or signature blocks
 
       Document:
       #{text_sample}
