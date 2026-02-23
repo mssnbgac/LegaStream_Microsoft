@@ -133,42 +133,93 @@ class AIAnalysisService
   end
 
   def extract_entities_with_ai(text)
-    log_step("Using #{@ai_provider.provider_name.upcase} for entity extraction")
+    log_step("Using HYBRID extraction: Regex for PARTY, AI for other entities")
     
-    entities_data = @ai_provider.extract_entities(text)
+    # HYBRID APPROACH: Use regex for PARTY (more accurate), AI for everything else
+    all_entities = []
     
-    if entities_data.nil?
-      log_step("AI returned nil, using fallback")
-      return extract_entities_fallback(text)
+    # Step 1: Extract PARTY entities using strict regex (fallback method)
+    log_step("Extracting PARTY entities using strict regex patterns...")
+    party_entities = extract_parties_strict(text)
+    log_step("Found #{party_entities.length} PARTY entities via regex")
+    all_entities.concat(party_entities)
+    
+    # Step 2: Get other entities from AI (excluding PARTY)
+    log_step("Using #{@ai_provider.provider_name.upcase} for non-PARTY entities")
+    ai_entities = @ai_provider.extract_entities(text)
+    
+    if ai_entities.is_a?(Array) && !ai_entities.empty?
+      # Filter out PARTY entities from AI results, keep everything else
+      non_party_entities = ai_entities.reject { |e| e['type'] == 'PARTY' || e[:type] == 'PARTY' }
+      log_step("AI extracted #{non_party_entities.length} non-PARTY entities")
+      all_entities.concat(non_party_entities)
+    else
+      log_step("AI returned no entities, using fallback for non-PARTY types")
+      fallback_entities = extract_entities_fallback(text)
+      non_party_fallback = fallback_entities.reject { |e| e[:type] == 'PARTY' }
+      all_entities.concat(non_party_fallback)
     end
     
-    unless entities_data.is_a?(Array)
-      log_step("AI returned non-array (#{entities_data.class}), using fallback")
-      return extract_entities_fallback(text)
+    log_step("Total entities: #{all_entities.length}")
+    
+    # Save all entities to database
+    all_entities.each do |entity|
+      type = entity['type'] || entity[:type]
+      value = entity['value'] || entity[:value]
+      context = entity['context'] || entity[:context] || ''
+      confidence = entity['confidence'] || entity[:confidence] || 0.90
+      
+      save_entity(type, value, context, confidence)
     end
     
-    if entities_data.empty?
-      log_step("AI returned empty array, using fallback")
-      return extract_entities_fallback(text)
-    end
-    
-    log_step("AI extracted #{entities_data.length} entities")
-    
-    # Filter and validate entities before saving
-    valid_entities = filter_valid_parties(entities_data)
-    log_step("After filtering: #{valid_entities.length} valid entities")
-    
-    # Save entities to database
-    valid_entities.each do |entity|
-      confidence = entity['confidence'] || 0.90
-      save_entity(entity['type'], entity['value'], entity['context'] || '', confidence)
-    end
-    
-    valid_entities
+    all_entities
   rescue => e
-    log_step("AI entity extraction failed: #{e.message}")
+    log_step("Hybrid extraction failed: #{e.message}")
     log_step("Error class: #{e.class}")
     extract_entities_fallback(text)
+  end
+  
+  def extract_parties_strict(text)
+    # STRICT PARTY EXTRACTION - Only real company names and person names
+    parties = []
+    
+    # Extract company names (must have company indicator)
+    text.scan(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,4})\s+(Corporation|Corp\.?|Inc\.?|LLC|Ltd\.?|Limited|Company|Co\.?|Partnership|LLP|PC|PA|PLC|Plc|Bank|Solutions|Technologies|Services|Group|Holdings|Enterprises)\b/i) do |name, indicator|
+      full_name = "#{name} #{indicator}".strip
+      
+      # Skip if too short
+      next if full_name.length < 5
+      
+      # Skip if contains generic terms
+      next if full_name.match?(/\b(?:Student|Academic|Session|Payment|Transfer|Account|Amount|First|Second|Third)\b/i)
+      
+      parties << { type: 'PARTY', value: full_name, context: 'company party to agreement', confidence: 0.95 }
+    end
+    
+    # Extract person names (2-3 words, each capitalized, strict validation)
+    text.scan(/\b([A-Z][a-z]{2,})\s+([A-Z][a-z]{2,})(?:\s+([A-Z][a-z]{2,}))?\b/) do |first, last, middle|
+      full_name = middle ? "#{first} #{middle} #{last}" : "#{first} #{last}"
+      
+      # Skip if contains generic/common words
+      generic_words = %w[Student Name Academic Session First Class Term Payment Method Bank Transfer Transaction Account Number Amount Date Time Period Year Month Day Week]
+      next if generic_words.any? { |w| full_name.include?(w) }
+      
+      # Skip if it's a location
+      locations = %w[Lagos Oyo Niger Imo Abuja New York California Texas Florida]
+      next if locations.any? { |loc| full_name.include?(loc) }
+      
+      # Skip if it's a job title
+      job_titles = %w[Administrator Officer Manager Director President Secretary]
+      next if job_titles.any? { |title| full_name.include?(title) }
+      
+      # Skip if words are too short
+      next if full_name.split.any? { |w| w.length < 3 }
+      
+      parties << { type: 'PARTY', value: full_name, context: 'individual party to agreement', confidence: 0.90 }
+    end
+    
+    # Remove duplicates
+    parties.uniq { |p| p[:value] }
   end
   
   def filter_valid_parties(entities)
