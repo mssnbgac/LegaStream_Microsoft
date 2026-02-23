@@ -188,14 +188,42 @@ class AIProvider
   end
 
   def summary_with_gemini(text, entities, compliance, risks)
+    # Extract key information for context
+    parties = entities.select { |e| (e['type'] || e[:type]) == 'PARTY' }.map { |e| e['value'] || e[:value] }.first(3)
+    dates = entities.select { |e| (e['type'] || e[:type]) == 'DATE' }.map { |e| e['value'] || e[:value] }.first(2)
+    amounts = entities.select { |e| (e['type'] || e[:type]) == 'AMOUNT' }.map { |e| e['value'] || e[:value] }.first(2)
+    
     prompt = <<~PROMPT
-      Summarize this legal document in 2-3 sentences. Focus on key points, parties, and obligations.
-      
-      Document:
+      Create a concise executive summary of this legal document in EXACTLY 3-4 sentences (maximum 250 words).
+
+      Structure your summary as follows:
+      1. First sentence: Document type and date
+      2. Second sentence: Main parties involved
+      3. Third sentence: Key terms, amounts, or obligations
+      4. Fourth sentence (optional): Important conditions or deadlines
+
+      Key entities found:
+      - Parties: #{parties.join(', ')}
+      - Dates: #{dates.join(', ')}
+      - Amounts: #{amounts.join(', ')}
+
+      Document excerpt:
       #{text[0..2000]}
+
+      Write a clear, professional summary that a business executive can read in 30 seconds.
+      Focus on WHO, WHAT, WHEN, and HOW MUCH.
+      Do NOT include legal jargon or unnecessary details.
     PROMPT
 
-    call_gemini_api(prompt)
+    summary = call_gemini_api(prompt)
+    
+    # Ensure summary is not too long (max 250 words)
+    if summary && summary.split.length > 250
+      words = summary.split[0..249]
+      summary = words.join(' ') + '...'
+    end
+    
+    summary
   end
 
   def call_gemini_api(prompt)

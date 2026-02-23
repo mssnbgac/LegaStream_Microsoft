@@ -555,12 +555,56 @@ class AIAnalysisService
   end
 
   def generate_summary_fallback(text, entities, compliance, risks)
-    # Extract first few sentences as summary
-    sentences = text.split(/[.!?]+/).map(&:strip).reject(&:empty?)
-    summary = sentences.first(3).join('. ')
+    # Create a structured summary from extracted entities
+    parties = entities.select { |e| e[:type] == 'PARTY' }.map { |e| e[:value] }.first(3)
+    dates = entities.select { |e| e[:type] == 'DATE' }.map { |e| e[:value] }.first(2)
+    amounts = entities.select { |e| e[:type] == 'AMOUNT' }.map { |e| e[:value] }.first(2)
     
-    if summary.length > 300
-      summary = summary[0..297] + '...'
+    # Extract document type from first sentence
+    first_sentence = text.split(/[.!?]+/).first&.strip || ''
+    doc_type = if first_sentence.match?(/agreement/i)
+      first_sentence[/\b\w+\s+agreement\b/i] || 'Agreement'
+    elsif first_sentence.match?(/contract/i)
+      first_sentence[/\b\w+\s+contract\b/i] || 'Contract'
+    else
+      'Legal Document'
+    end
+    
+    # Build summary
+    summary_parts = []
+    
+    # Part 1: Document type and date
+    if dates.any?
+      summary_parts << "This #{doc_type} was executed on #{dates.first}."
+    else
+      summary_parts << "This #{doc_type} outlines the terms and conditions between the parties."
+    end
+    
+    # Part 2: Parties
+    if parties.length >= 2
+      summary_parts << "The agreement is between #{parties[0]} and #{parties[1]}#{parties.length > 2 ? ', among others' : ''}."
+    elsif parties.length == 1
+      summary_parts << "The document involves #{parties[0]}."
+    end
+    
+    # Part 3: Key terms
+    if amounts.any?
+      summary_parts << "Key financial terms include #{amounts.join(' and ')}."
+    end
+    
+    # Part 4: Compliance and risk
+    if compliance[:score] < 70
+      summary_parts << "The document has #{compliance[:issues].length} compliance issues requiring attention."
+    elsif risks[:level] == 'high'
+      summary_parts << "This agreement contains high-risk clauses that require careful review."
+    end
+    
+    summary = summary_parts.join(' ')
+    
+    # Ensure summary is not too long (max 250 words)
+    if summary.split.length > 250
+      words = summary.split[0..249]
+      summary = words.join(' ') + '...'
     end
     
     summary.empty? ? "Document analyzed with #{entities.length} entities found." : summary
