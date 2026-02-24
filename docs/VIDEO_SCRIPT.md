@@ -69,6 +69,7 @@
 **Narrator**:
 "Here's what makes Legal Auditor Agent special. It extracts 10 legal-specific entity types..."
 
+
 **[Visual: Highlight each entity type]**
 
 1. **Parties**: "Acme Corporation, John Smith"
@@ -81,7 +82,6 @@
 8. **Terms**: "24-month contract duration"
 9. **Conditions**: "Subject to background check"
 10. **Penalties**: "$5,000 liquidated damages"
-
 **[Visual: Confidence scores]**
 
 "Each entity has a confidence score. We only show entities with 95%+ confidence."
