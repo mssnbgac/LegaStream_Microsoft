@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+require 'bundler/setup'
 require 'webrick'
 require 'json'
 require 'sqlite3'
